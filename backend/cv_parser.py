@@ -45,16 +45,32 @@ def parse_cv_with_openai(text: str) -> ParsedCV:
         messages=[
             {
                 "role": "system",
-                "content": """You are a CV/resume parser. Extract structured information from the provided CV text.
+                "content": """You are a flexible CV/resume parser that can handle various CV formats and styles.
+
+Your task is to extract structured information from any CV format, including:
+- Traditional chronological CVs
+- Functional/skills-based CVs
+- Creative/modern formats
+- Academic CVs
+- CVs in different languages or cultural styles
 
 Guidelines:
-- Extract the candidate's name, contact info, professional summary
-- List work experience with company names, roles, and key achievements
-- Extract skills (technical and soft skills)
-- Identify projects with descriptions and technologies used
-- Extract education details
+- Extract the candidate's name (check headers, top of page, signature lines)
+- Find contact info: email and phone (look anywhere in the document)
+- Create a brief professional summary (synthesize from objective, about me, profile sections, or opening paragraphs)
+- List work experience: company names, job titles, dates if available, and key achievements/responsibilities
+- Extract all skills: technical skills, soft skills, tools, languages, certifications
+- Identify projects: personal projects, academic projects, portfolio work with descriptions
+- Extract education: degrees, institutions, dates, relevant coursework
 
-Be thorough and accurate. If information is not available, use empty arrays/strings."""
+Be flexible and adaptive:
+- If a section is missing or unclear, use null for nullable fields or empty arrays
+- Infer information from context when explicit labels are absent
+- Handle various date formats and job title variations
+- Extract achievements from bullet points, paragraphs, or narrative text
+- Look for alternative section names (e.g., "Professional Experience" vs "Work History")
+
+Output valid data even for minimal or poorly formatted CVs."""
             },
             {
                 "role": "user",
@@ -86,7 +102,7 @@ Be thorough and accurate. If information is not available, use empty arrays/stri
                                         "items": {"type": "string"}
                                     }
                                 },
-                                "required": ["company", "role", "achievements"],
+                                "required": ["company", "role", "duration", "achievements"],
                                 "additionalProperties": False
                             }
                         },
@@ -115,7 +131,7 @@ Be thorough and accurate. If information is not available, use empty arrays/stri
                             "items": {"type": "string"}
                         }
                     },
-                    "required": ["name", "summary", "experience", "skills", "projects", "education"],
+                    "required": ["name", "email", "phone", "summary", "experience", "skills", "projects", "education"],
                     "additionalProperties": False
                 }
             }
