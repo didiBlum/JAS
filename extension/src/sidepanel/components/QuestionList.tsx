@@ -19,10 +19,24 @@ interface FieldWithAnswer extends FormField {
 function QuestionList({ cvData, stylePreferences, fields, onScanFields, isScanning }: QuestionListProps) {
   const [fieldsWithAnswers, setFieldsWithAnswers] = useState<FieldWithAnswer[]>([]);
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
+  const [lastScanResult, setLastScanResult] = useState<string | null>(null);
+  const [showScanSuccess, setShowScanSuccess] = useState(false);
 
   // Update fields when new ones are scanned
   useState(() => {
-    setFieldsWithAnswers(fields.map(f => ({ ...f })));
+    const newFields = fields.map(f => ({ ...f }));
+    setFieldsWithAnswers(newFields);
+
+    // Show success message when fields are detected
+    if (newFields.length > 0 && !isScanning) {
+      setLastScanResult(`Found ${newFields.length} form field${newFields.length === 1 ? '' : 's'}`);
+      setShowScanSuccess(true);
+      setTimeout(() => setShowScanSuccess(false), 5000); // Hide after 5 seconds
+    } else if (newFields.length === 0 && !isScanning && lastScanResult !== null) {
+      setLastScanResult('No form fields detected on this page');
+      setShowScanSuccess(true);
+      setTimeout(() => setShowScanSuccess(false), 5000);
+    }
   });
 
   const handleGenerateAnswer = async (field: FieldWithAnswer) => {
@@ -159,10 +173,46 @@ function QuestionList({ cvData, stylePreferences, fields, onScanFields, isScanni
             </>
           )}
         </div>
+
+        {/* Scanning Indicator */}
+        {isScanning && (
+          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-md flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <div>
+              <p className="font-medium text-blue-900">Scanning page...</p>
+              <p className="text-sm text-blue-700">Looking for form fields on the current page</p>
+            </div>
+          </div>
+        )}
+
+        {/* Scan Success Message */}
+        {showScanSuccess && lastScanResult && (
+          <div className={`mt-4 p-4 rounded-md flex items-center gap-3 ${
+            fieldsWithAnswers.length > 0
+              ? 'bg-green-50 border-l-4 border-green-500'
+              : 'bg-yellow-50 border-l-4 border-yellow-500'
+          }`}>
+            <div className="text-2xl">
+              {fieldsWithAnswers.length > 0 ? '✓' : '⚠️'}
+            </div>
+            <div>
+              <p className={`font-medium ${
+                fieldsWithAnswers.length > 0 ? 'text-green-900' : 'text-yellow-900'
+              }`}>
+                {lastScanResult}
+              </p>
+              {fieldsWithAnswers.length === 0 && (
+                <p className="text-sm text-yellow-700">
+                  Make sure you're on a job application form page
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Fields List */}
-      {fieldsWithAnswers.length === 0 ? (
+      {fieldsWithAnswers.length === 0 && !isScanning ? (
         <div className="text-center py-12 text-gray-500">
           <div className="text-6xl mb-4">📋</div>
           <p>No form fields detected yet.</p>
