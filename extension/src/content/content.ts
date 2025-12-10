@@ -157,18 +157,26 @@ function isRelevantField(element: HTMLInputElement | HTMLTextAreaElement): boole
     return false;
   }
 
-  // Skip common non-application fields
-  const skipTypes = ['password', 'email', 'tel', 'number', 'date', 'checkbox', 'radio', 'file', 'submit'];
+  // Skip only truly irrelevant field types
+  const skipTypes = ['password', 'checkbox', 'radio', 'file', 'submit', 'button'];
   if (element instanceof HTMLInputElement && skipTypes.includes(element.type)) {
     return false;
   }
 
-  // Skip very short inputs (likely name, email, phone)
-  if (element instanceof HTMLInputElement && (!element.maxLength || element.maxLength < 50)) {
-    return false;
+  // Include all textareas (they're almost always for long-form answers)
+  if (element.tagName.toLowerCase() === 'textarea') {
+    return true;
   }
 
-  return true;
+  // Include text, email, tel, number inputs (for name, email, phone, etc.)
+  if (element instanceof HTMLInputElement) {
+    const type = element.type.toLowerCase();
+    if (['text', 'email', 'tel', 'url', ''].includes(type)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -181,8 +189,10 @@ function scanFormFields(): FormField[] {
   pageContext = extractPageContext();
   console.log('Extracted page context:', pageContext);
 
-  // Find all text inputs and textareas
-  const inputs = document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])');
+  // Find all relevant input types and textareas
+  const inputs = document.querySelectorAll<HTMLInputElement>(
+    'input[type="text"], input[type="email"], input[type="tel"], input[type="url"], input:not([type])'
+  );
   const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea');
 
   const allFields = [...Array.from(inputs), ...Array.from(textareas)];

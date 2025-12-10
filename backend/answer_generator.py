@@ -144,12 +144,13 @@ Create highly tailored answers that demonstrate clear alignment between the cand
 
 CRITICAL RULES:
 1. ONLY use facts from the candidate's CV - NEVER fabricate experiences or achievements
-2. ALWAYS reference the company name, role, and their values/mission when relevant
-3. Show specific connections between the candidate's experience and what the company is looking for
-4. Write in first person as the candidate
-5. Be authentic - if the CV lacks relevant experience, acknowledge it briefly and pivot to transferable skills
+2. ALWAYS use the ACTUAL company name provided - NEVER use placeholders like [Company Name] or [Role]
+3. If company info is provided, naturally weave it into your answer - mention the company by name
+4. Show specific connections between the candidate's experience and what the company is looking for
+5. Write in first person as the candidate
+6. Be authentic - if the CV lacks relevant experience, acknowledge it briefly and pivot to transferable skills
 
-{company_context}
+{company_context if company_context else "Note: No company information provided. Focus solely on the candidate's qualifications."}
 
 Style Instructions: {style_instructions}
 
@@ -160,12 +161,15 @@ Candidate's CV:
     user_prompt = f"""Question: {question}
 
 INSTRUCTIONS FOR ANSWERING:
-1. If this is about motivation/interest: Explain WHY this specific company and role appeals based on their values, mission, or work
-2. If this is about experience: Select the MOST relevant project/achievement from the CV that relates to their needs
-3. If this is about skills: Highlight skills from the CV that directly match what they're looking for
-4. Always tie your answer back to what you know about the company/role
+1. If company name/role is provided above, USE IT DIRECTLY - do not use brackets or placeholders
+2. If this is about motivation/interest: Explain WHY this specific company/role appeals based on their actual values or mission
+3. If this is about experience: Select the MOST relevant project/achievement from the CV
+4. If this is about skills: Highlight skills from the CV that directly match their needs
+5. Write naturally - weave in company references smoothly, not as obvious insertions
 
-Generate a compelling, authentic answer that shows you've researched this company and understand what they're about."""
+NEVER write "[Company Name]" or "[Role]" - always use the actual names provided or omit company references if not provided.
+
+Generate a compelling, authentic answer."""
 
     completion = client.chat.completions.create(
         model="gpt-4o",
