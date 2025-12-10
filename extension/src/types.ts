@@ -15,6 +15,7 @@ export interface ParsedCV {
   name: string;
   email?: string;
   phone?: string;
+  linkedin_url?: string;
   summary: string;
   experience: Experience[];
   skills: string[];

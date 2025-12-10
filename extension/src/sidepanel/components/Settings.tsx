@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ParsedCV, StylePreferences } from '../../types';
 import { saveStylePreferences, saveCVData, getApiUrl, saveApiUrl } from '../storage';
 import { uploadCV } from '../api';
+import CVEditor from './CVEditor';
 
 interface SettingsProps {
   cvData: ParsedCV | null;
@@ -15,6 +16,7 @@ function Settings({ cvData, stylePreferences, onStyleChanged, onCVReuploaded }: 
   const [apiUrl, setApiUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCVEditor, setShowCVEditor] = useState(false);
 
   // Load API URL on mount
   useState(() => {
@@ -60,13 +62,40 @@ function Settings({ cvData, stylePreferences, onStyleChanged, onCVReuploaded }: 
       <section className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Your CV</h3>
         {cvData && (
-          <div className="mb-4 p-4 bg-gray-50 rounded-md">
-            <p className="font-medium">{cvData.name}</p>
-            {cvData.email && <p className="text-sm text-gray-600">{cvData.email}</p>}
-            <p className="text-sm text-gray-500 mt-2">
-              {cvData.experience.length} experiences • {cvData.skills.length} skills
-            </p>
-          </div>
+          <>
+            <div className="mb-4 p-4 bg-gray-50 rounded-md">
+              <p className="font-medium">{cvData.name}</p>
+              {cvData.email && <p className="text-sm text-gray-600">{cvData.email}</p>}
+              {cvData.linkedin_url && (
+                <a
+                  href={cvData.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  LinkedIn Profile
+                </a>
+              )}
+              <p className="text-sm text-gray-500 mt-2">
+                {cvData.experience.length} experiences • {cvData.skills.length} skills
+              </p>
+            </div>
+
+            {/* View & Edit CV Data Button */}
+            <button
+              onClick={() => setShowCVEditor(!showCVEditor)}
+              className="mb-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition"
+            >
+              {showCVEditor ? 'Hide' : 'View & Edit'} CV Data
+            </button>
+
+            {/* CV Editor */}
+            {showCVEditor && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
+                <CVEditor cvData={cvData} onCVUpdated={onCVReuploaded} />
+              </div>
+            )}
+          </>
         )}
 
         <label className="block">
