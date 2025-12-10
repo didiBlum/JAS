@@ -1,0 +1,350 @@
+Product Specification: AI-Powered Job Application Autofill Chrome Extension
+1. Product Overview
+
+This Chrome extension helps job seekers apply to roles faster and with higher-quality answers.
+It automatically parses any online job application form, extracts questions, and generates tailored, high-quality answers using the user’s CV or LinkedIn profile + their personal writing style.
+
+The goal is to reduce friction, save time, and help candidates submit stronger applications at scale.
+
+✨ 2. Target Users
+
+Tech candidates (software engineers, PMs, designers).
+
+Candidates applying to many roles in parallel.
+
+People who struggle with writing answers about themselves.
+
+Candidates with limited English or confidence in self-promotion.
+
+🎯 3. Core Value Proposition
+
+Automatic form parsing → No need to type repetitive details again and again.
+
+AI-powered answers → High-quality, personalized short/long answers.
+
+Consistency with candidate identity → Only uses the user's real CV data.
+
+User voice → User controls style, tone, level of confidence.
+
+Time savings → Apply to 5–10 jobs in the time usually needed for 1.
+
+🧩 4. User Flow
+4.1 Onboarding
+
+Install extension → click icon to begin.
+
+Upload CV (PDF) or connect LinkedIn profile (via URL scraping + user permission).
+
+User highlights sections: experience, projects, skills, summary.
+
+Pick writing style:
+
+Confident / humble
+
+Concise / elaborate
+
+Formal / casual
+
+First person / third person
+
+Set tone presets (e.g., “technical”, “product-oriented”).
+
+4.2 Using the Extension on an Application Page
+
+User opens a job application page.
+
+Extension scans the DOM and:
+
+Detects text inputs
+
+Detects textareas
+
+Identifies questions (placeholder text, labels, aria labels)
+
+Extension lists all questions in a side panel.
+
+4.3 AI Answer Generation
+
+For each question:
+
+User clicks “Generate Answer”
+
+Model uses:
+
+Parsed question
+
+CV data + extracted achievements
+
+Job description (optional — detect automatically if in page)
+
+User writing profile
+
+Returns tailored answer.
+
+User can edit manually.
+
+User clicks “Fill” → autopopulates field.
+
+4.4 Bulk Mode
+
+User clicks “Auto-fill all answers”
+
+Extension fills all fields (with review option).
+
+4.5 Submission Tracking (later version)
+
+Track which jobs the user applied to.
+
+Save answers for reuse.
+
+📦 5. Core Features
+5.1 Data Import
+
+Upload CV (.pdf, .docx) → parse into structured JSON.
+
+Import LinkedIn → scrape sections + convert into JSON.
+
+User manually edits parsed data if needed.
+
+5.2 Form Parser
+
+DOM scanner detects:
+
+<input type="text">
+
+<textarea>
+
+<select> (future)
+
+Labels and surrounding context
+
+Cleans and normalizes questions.
+
+5.3 AI Answer Engine
+
+For each question:
+
+Classify question type:
+
+Motivation (“Why do you want this role?”)
+
+Experience (“Tell us about a project…”)
+
+Skills (“Describe your knowledge of X”)
+
+Behavioral (“Tell me about a challenge…”)
+
+Generate answers using:
+
+User skills + achievements
+
+User-preferred tone
+
+Job description context
+
+5.4 Style Personalization
+
+User can pick:
+
+Voice tone (formal, friendly, confident, humble)
+
+Length (short, medium, long)
+
+Personality sliders (e.g., “more technical / more storytelling”)
+
+⚙️ Technical Specification
+1. Architecture Overview
+Chrome Extension
+   |
+   | (DOM parsing, UI)
+   v
+Local Processing Layer
+   - CV parser (in-browser or backend)
+   - Form scanner
+   |
+   | (API calls)
+   v
+Backend API (FastAPI or Node)
+   |
+   | (CV storage + embeddings)
+   v
+Vector DB (e.g., Pinecone, Qdrant, Supabase Vector)
+   |
+   | (Prompting engine)
+   v
+LLM (OpenAI API)
+
+2. Chrome Extension Components
+2.1 Content Script
+
+Injected into every tab.
+
+Responsibilities:
+
+DOM scanning for fields
+
+Extracting labels/questions
+
+Watching for dynamically loaded forms (MutationObserver)
+
+Providing mapping of field → question
+
+2.2 Popup & Side Panel
+
+React UI (using chrome-extension-boilerplate)
+
+Shows list of questions
+
+Calls backend to generate answers
+
+Auto-fills inputs via content script
+
+2.3 Background Worker
+
+Manages:
+
+Auth session
+
+Communication between popup ↔ content script
+
+Caching answers
+
+3. Backend Requirements
+3.1 API Endpoints (FastAPI)
+Endpoint	Method	Description
+/upload_cv	POST	Upload + parse CV into structured data
+/linkedin_scrape	POST	Scrape LinkedIn given HTML or public URL
+/generate_answer	POST	Generate answer for a specific question
+/save_style	POST	Save user style preferences
+/health	GET	Liveness
+3.2 CV Parser
+
+Options:
+
+Use OpenAI 5.1 structured extraction
+
+Extract text locally + use regex heuristics
+
+Use a Python NLP pipeline (Spacy + LLM refinement)
+
+Output format:
+
+{
+  "name": "Adi Blum",
+  "summary": "...",
+  "experience": [
+    {"company": "...", "role": "...", "achievements": ["...", "..."] },
+  ],
+  "skills": ["python", "aws", "system design"],
+  "projects": [...]
+}
+
+3.3 Vector Search (optional but recommended)
+
+Store each sentence from CV as an embedding.
+
+During answer generation:
+
+Retrieve relevant lines from CV
+
+Provide evidence grounding
+
+This enforces answers only based on the user’s real CV.
+
+4. AI Prompting Logic
+Prompt Template
+
+Inputs:
+
+Extracted question
+
+User CV chunks (from vector retrieval)
+
+Job description (optional)
+
+User tone/style profile
+
+Output Rules:
+
+Must only use facts in CV.
+
+Write in similar voice to user's settings.
+
+Include specific achievements when relevant.
+
+Stay concise unless user requested long style.
+
+5. Tech Stack
+Frontend (Extension)
+
+TypeScript
+
+React
+
+Chrome Extension Manifest V3
+
+Tailwind for styling
+
+Vite build system
+
+Backend
+
+FastAPI (Python) or Node Express
+
+PostgreSQL or Supabase (user settings)
+
+Qdrant or Supabase Vector for embeddings
+
+OpenAI API
+
+6. Security & Privacy
+
+CV stored encrypted in DB (or client-side only if local mode)
+
+Everything is user-initiated (no hidden scraping)
+
+Extension permissions:
+
+activeTab
+
+scripting
+
+storage
+
+No sensitive data sent except to your backend + OpenAI
+
+🛠️ 7. Milestone Breakdown (MVP)
+MVP v1
+
+Upload CV (PDF)
+
+Parse CV
+
+Scan form fields
+
+Extract questions
+
+Generate answers using CV + style
+
+Manual “fill” button
+
+MVP v2
+
+Auto-fill all
+
+LinkedIn importer
+
+Style/tone presets
+
+Save application history
+
+MVP v3 (Premium)
+
+Company-specific tailoring using job description
+
+Long-form essay generation
+
+Rewrite user-provided drafts
+
+Insights (weaknesses in CV)
+
