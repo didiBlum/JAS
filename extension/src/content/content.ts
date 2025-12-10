@@ -1,6 +1,100 @@
 import { FormField } from '../types';
 
 let detectedFields: FormField[] = [];
+let pageContext: {
+  companyName?: string;
+  jobTitle?: string;
+  jobDescription?: string;
+  companyValues?: string;
+} = {};
+
+/**
+ * Extract company and job context from the page.
+ * Looks for common patterns in job posting sites.
+ */
+function extractPageContext() {
+  const context: typeof pageContext = {};
+
+  // Extract company name - look for common selectors
+  const companySelectors = [
+    '[class*="company"]',
+    '[class*="employer"]',
+    '[data-qa="company"]',
+    'meta[property="og:site_name"]',
+    '[itemprop="hiringOrganization"]',
+    'h1', // Often the company name is in the main heading
+  ];
+
+  for (const selector of companySelectors) {
+    const element = document.querySelector(selector);
+    if (element) {
+      const text = element.getAttribute('content') || element.textContent?.trim();
+      if (text && text.length > 2 && text.length < 100) {
+        context.companyName = text;
+        break;
+      }
+    }
+  }
+
+  // Extract job title
+  const titleSelectors = [
+    '[class*="job-title"]',
+    '[class*="jobTitle"]',
+    '[class*="position"]',
+    '[data-qa="job-title"]',
+    'meta[property="og:title"]',
+    'h1',
+    'h2',
+  ];
+
+  for (const selector of titleSelectors) {
+    const element = document.querySelector(selector);
+    if (element) {
+      const text = element.getAttribute('content') || element.textContent?.trim();
+      if (text && text.length > 5 && text.length < 150 && text !== context.companyName) {
+        context.jobTitle = text;
+        break;
+      }
+    }
+  }
+
+  // Extract job description
+  const descriptionSelectors = [
+    '[class*="description"]',
+    '[class*="job-description"]',
+    '[class*="jobDescription"]',
+    '[data-qa="job-description"]',
+    'meta[name="description"]',
+    '[itemprop="description"]',
+  ];
+
+  for (const selector of descriptionSelectors) {
+    const element = document.querySelector(selector);
+    if (element) {
+      const text = element.getAttribute('content') || element.textContent?.trim();
+      if (text && text.length > 100) {
+        // Truncate to first 1500 chars to keep it manageable
+        context.jobDescription = text.substring(0, 1500);
+        break;
+      }
+    }
+  }
+
+  // Extract company values/culture - look for keywords
+  const valueKeywords = ['values', 'culture', 'mission', 'vision', 'about us', 'who we are'];
+  const allText = document.body.textContent || '';
+
+  for (const keyword of valueKeywords) {
+    const regex = new RegExp(`${keyword}[:\\s]+(.*?)(?:\\n\\n|\\.|$)`, 'i');
+    const match = allText.match(regex);
+    if (match && match[1] && match[1].length > 20) {
+      context.companyValues = match[1].substring(0, 500);
+      break;
+    }
+  }
+
+  return context;
+}
 
 /**
  * Extract question text from a form field.
@@ -83,6 +177,10 @@ function isRelevantField(element: HTMLInputElement | HTMLTextAreaElement): boole
 function scanFormFields(): FormField[] {
   const fields: FormField[] = [];
 
+  // Extract page context (company, job info)
+  pageContext = extractPageContext();
+  console.log('Extracted page context:', pageContext);
+
   // Find all text inputs and textareas
   const inputs = document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])');
   const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea');
@@ -147,7 +245,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         question: f.question,
         type: f.type,
       })),
+      pageContext, // Include extracted page context
     });
+    return true;
+  }
+
+  if (message.type === 'GET_PAGE_CONTEXT') {
+    // Return cached page context or extract fresh
+    if (Object.keys(pageContext).length === 0) {
+      pageContext = extractPageContext();
+    }
+    sendResponse({ success: true, pageContext });
     return true;
   }
 

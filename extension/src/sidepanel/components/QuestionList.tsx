@@ -21,11 +21,33 @@ function QuestionList({ cvData, stylePreferences, fields, onScanFields, isScanni
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
   const [lastScanResult, setLastScanResult] = useState<string | null>(null);
   const [showScanSuccess, setShowScanSuccess] = useState(false);
+  const [pageContext, setPageContext] = useState<any>(null);
 
   // Update fields when new ones are scanned
   useState(() => {
     const newFields = fields.map(f => ({ ...f }));
-    setFieldsWithAnswers(newFields);
+
+    // Auto-fill basic fields from CV
+    const autoFilledFields = newFields.map(field => {
+      const questionLower = field.question.toLowerCase();
+
+      // Auto-fill name
+      if (questionLower.includes('name') && questionLower.includes('full')) {
+        return { ...field, answer: cvData.name, questionType: 'basic-info' };
+      }
+      // Auto-fill email
+      if (questionLower.includes('email')) {
+        return { ...field, answer: cvData.email || '', questionType: 'basic-info' };
+      }
+      // Auto-fill phone
+      if (questionLower.includes('phone') || questionLower.includes('mobile')) {
+        return { ...field, answer: cvData.phone || '', questionType: 'basic-info' };
+      }
+
+      return field;
+    });
+
+    setFieldsWithAnswers(autoFilledFields);
 
     // Show success message when fields are detected
     if (newFields.length > 0 && !isScanning) {
@@ -46,10 +68,26 @@ function QuestionList({ cvData, stylePreferences, fields, onScanFields, isScanni
     );
 
     try {
+      // Get page context if we don't have it yet
+      let contextToUse = pageContext;
+      if (!contextToUse) {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab.id) {
+            const contextResponse = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_CONTEXT' });
+            contextToUse = contextResponse.pageContext;
+            setPageContext(contextToUse);
+          }
+        } catch (error) {
+          console.warn('Could not get page context:', error);
+        }
+      }
+
       const response = await generateAnswer({
         question: field.question,
         cv_data: cvData,
         style: stylePreferences,
+        job_description: contextToUse ? JSON.stringify(contextToUse) : undefined,
       });
 
       setFieldsWithAnswers(prev =>

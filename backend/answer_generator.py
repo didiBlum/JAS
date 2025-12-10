@@ -117,14 +117,39 @@ async def generate_answer(
     cv_context = build_cv_context(cv_data)
     style_instructions = get_style_instructions(style)
 
-    # Build the prompt
-    system_prompt = f"""You are helping a job candidate answer application questions.
+    # Parse job context from job_description parameter
+    import json
+    company_context = ""
+    try:
+        if job_description:
+            context_data = json.loads(job_description)
+            if context_data.get('companyName'):
+                company_context += f"Company: {context_data['companyName']}\n"
+            if context_data.get('jobTitle'):
+                company_context += f"Position: {context_data['jobTitle']}\n"
+            if context_data.get('jobDescription'):
+                company_context += f"Job Description:\n{context_data['jobDescription']}\n"
+            if context_data.get('companyValues'):
+                company_context += f"Company Values/Culture:\n{context_data['companyValues']}\n"
+    except:
+        # If not JSON, treat as raw job description
+        if job_description:
+            company_context = f"Job Context:\n{job_description}\n"
+
+    # Build enhanced prompt
+    system_prompt = f"""You are an expert career advisor helping a job candidate craft compelling, authentic application responses.
+
+YOUR MISSION:
+Create highly tailored answers that demonstrate clear alignment between the candidate's background and this specific company/role.
 
 CRITICAL RULES:
-1. Only use facts from the candidate's CV - DO NOT make up experiences or achievements
-2. If the CV doesn't contain relevant information, write a brief honest answer acknowledging the gap
-3. Write in first person as the candidate
-4. Follow the style instructions carefully
+1. ONLY use facts from the candidate's CV - NEVER fabricate experiences or achievements
+2. ALWAYS reference the company name, role, and their values/mission when relevant
+3. Show specific connections between the candidate's experience and what the company is looking for
+4. Write in first person as the candidate
+5. Be authentic - if the CV lacks relevant experience, acknowledge it briefly and pivot to transferable skills
+
+{company_context}
 
 Style Instructions: {style_instructions}
 
@@ -132,12 +157,15 @@ Candidate's CV:
 {cv_context}
 """
 
-    user_prompt = f"Question: {question}"
+    user_prompt = f"""Question: {question}
 
-    if job_description:
-        user_prompt += f"\n\nJob Description Context:\n{job_description}"
+INSTRUCTIONS FOR ANSWERING:
+1. If this is about motivation/interest: Explain WHY this specific company and role appeals based on their values, mission, or work
+2. If this is about experience: Select the MOST relevant project/achievement from the CV that relates to their needs
+3. If this is about skills: Highlight skills from the CV that directly match what they're looking for
+4. Always tie your answer back to what you know about the company/role
 
-    user_prompt += "\n\nGenerate a tailored answer based only on the CV information provided."
+Generate a compelling, authentic answer that shows you've researched this company and understand what they're about."""
 
     completion = client.chat.completions.create(
         model="gpt-4o",
