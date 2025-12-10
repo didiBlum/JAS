@@ -1,8 +1,15 @@
+import os
+from typing import Optional
 from openai import OpenAI
 from models import ParsedCV, StylePreferences, GenerateAnswerResponse
+from dotenv import load_dotenv
 
-# TODO: Move to environment variable before going live
-OPENAI_API_KEY = "your-openai-api-key-here"
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable not set")
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 
@@ -101,7 +108,7 @@ async def generate_answer(
     question: str,
     cv_data: ParsedCV,
     style: StylePreferences,
-    job_description: str | None = None
+    job_description: Optional[str] = None
 ) -> GenerateAnswerResponse:
     """
     Generate a tailored answer to an application question.

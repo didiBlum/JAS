@@ -1,12 +1,18 @@
 import io
+import os
 from typing import BinaryIO
 from openai import OpenAI
 from pypdf import PdfReader
 from docx import Document
 from models import ParsedCV
+from dotenv import load_dotenv
 
-# TODO: Move to environment variable before going live
-OPENAI_API_KEY = "your-openai-api-key-here"
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable not set")
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 
