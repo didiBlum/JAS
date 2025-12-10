@@ -17,8 +17,13 @@ class Project(BaseModel):
 
 class ParsedCV(BaseModel):
     name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    website: Optional[str] = None
+    country: Optional[str] = None
     summary: str
     experience: List[Experience] = []
     skills: List[str] = []

@@ -1,8 +1,12 @@
+import logging
 import os
-from typing import Optional
+import re
+from typing import Optional, List
 from openai import OpenAI
 from models import ParsedCV, StylePreferences, GenerateAnswerResponse
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -31,11 +35,100 @@ def classify_question(question: str) -> str:
         return "general"
 
 
+def _derive_name_parts(cv_data: ParsedCV) -> tuple[Optional[str], Optional[str]]:
+    """
+    Get first and last name from the parsed CV without inventing new values.
+    """
+    if getattr(cv_data, "first_name", None) or getattr(cv_data, "last_name", None):
+        return cv_data.first_name, cv_data.last_name
+
+    if cv_data.name:
+        parts = cv_data.name.strip().split()
+        if parts:
+            first = parts[0]
+            last = parts[-1] if len(parts) > 1 else None
+            return first, last
+
+    return None, None
+
+
+def answer_basic_field(question: str, cv_data: ParsedCV) -> Optional[GenerateAnswerResponse]:
+    """
+    For simple identity/contact questions, respond directly with CV data
+    without using the LLM.
+    """
+    q = question.lower()
+    first_name, last_name = _derive_name_parts(cv_data)
+
+    field_value = None
+    options: List[str] = []
+
+    def _extract_options(raw_question: str) -> List[str]:
+        """
+        Try to extract dropdown options from the question text, e.g.:
+        - "Options: USA, Canada, UK"
+        - "[USA, Canada, UK]"
+        """
+        raw_lower = raw_question.lower()
+        collected = []
+
+        bracketed = re.findall(r"\[([^\]]+)\]", raw_question)
+        for group in bracketed:
+            collected.extend(group.split(","))
+
+        options_match = re.search(r"options?:\s*(.+)", raw_question, flags=re.IGNORECASE)
+        if options_match:
+            collected.extend(options_match.group(1).split(","))
+
+        # Normalize and dedupe
+        normalized = []
+        seen = set()
+        for opt in collected:
+            clean = opt.strip()
+            if clean and clean.lower() not in seen:
+                seen.add(clean.lower())
+                normalized.append(clean)
+
+        return normalized
+    if "first name" in q:
+        field_value = first_name
+    elif "last name" in q or "surname" in q or "family name" in q:
+        field_value = last_name
+    elif "full name" in q or ("your name" in q) or q.strip() in {"name", "what is your name"}:
+        field_value = cv_data.name
+    elif "email" in q or "e-mail" in q:
+        field_value = cv_data.email
+    elif "phone" in q or "phone number" in q or "mobile" in q or "contact number" in q:
+        field_value = cv_data.phone
+    elif "linkedin" in q:
+        field_value = cv_data.linkedin_url
+    elif "website" in q or "portfolio" in q or "site" in q:
+        # If website not present in CV, return empty answer
+        field_value = cv_data.website or ""
+    elif "country" in q or "location" in q:
+        options = _extract_options(question)
+        if options and cv_data.country:
+            match = next((opt for opt in options if opt.lower() == cv_data.country.lower()), None)
+            if not match:
+                match = next((opt for opt in options if cv_data.country.lower() in opt.lower() or opt.lower() in cv_data.country.lower()), None)
+            field_value = match or ""
+        elif cv_data.country:
+            field_value = cv_data.country
+
+    if field_value:
+        return GenerateAnswerResponse(answer=str(field_value), question_type="basic_info")
+
+    return None
+
+
 def build_cv_context(cv_data: ParsedCV) -> str:
     """
     Convert structured CV data into a narrative context for the LLM.
     """
     context = f"Candidate Name: {cv_data.name}\n\n"
+
+    if cv_data.country:
+        context += f"Location/Country: {cv_data.country}\n\n"
 
     if cv_data.summary:
         context += f"Professional Summary:\n{cv_data.summary}\n\n"
@@ -113,6 +206,14 @@ async def generate_answer(
     """
     Generate a tailored answer to an application question.
     """
+    logger.info("Generating answer | question=%s", question)
+
+    # Return direct CV fields for simple identity/contact questions
+    direct_response = answer_basic_field(question, cv_data)
+    if direct_response:
+        logger.info("Direct basic info response | question=%s | answer=%s", question, direct_response.answer)
+        return direct_response
+
     question_type = classify_question(question)
     cv_context = build_cv_context(cv_data)
     style_instructions = get_style_instructions(style)
@@ -137,18 +238,28 @@ async def generate_answer(
             company_context = f"Job Context:\n{job_description}\n"
 
     # Build enhanced prompt
-    system_prompt = f"""You are an expert career advisor helping a job candidate craft compelling, authentic application responses.
+    system_prompt = f"""You are an expert career advisor and recruiter helping a job candidate craft compelling, authentic application responses.
 
 YOUR MISSION:
-Create highly tailored answers that demonstrate clear alignment between the candidate's background and this specific company/role.
+Analyze the candidate's background strategically and select the MOST RELEVANT experiences that align with the target role. Think like a recruiter matching candidates to positions.
 
 CRITICAL RULES:
 1. ONLY use facts from the candidate's CV - NEVER fabricate experiences or achievements
 2. ALWAYS use the ACTUAL company name provided - NEVER use placeholders like [Company Name] or [Role]
-3. If company info is provided, naturally weave it into your answer - mention the company by name
-4. Show specific connections between the candidate's experience and what the company is looking for
-5. Write in first person as the candidate
-6. Be authentic - if the CV lacks relevant experience, acknowledge it briefly and pivot to transferable skills
+3. STRATEGICALLY SELECT which experiences to highlight based on relevance
+4. Write in first person as the candidate
+5. Be authentic - if the CV lacks relevant experience, acknowledge it briefly and pivot to transferable skills
+
+STRATEGIC EXPERIENCE MATCHING:
+When selecting which experiences to mention, consider:
+- Industry alignment (e.g., if target is cyber security, prioritize cyber/security experience)
+- Job title similarity (e.g., backend engineer → highlight backend roles)
+- Work arrangement matches (e.g., if remote role, mention remote experience)
+- Technology/skill overlap (e.g., if they want Python, highlight Python projects)
+- Company type/size similarity (startup experience for startups, enterprise for enterprise)
+- Relevant achievements that solve similar problems they're facing
+
+For each experience on the CV, ask yourself: "How does this relate to what they're looking for?" Then emphasize the most relevant ones.
 
 {company_context if company_context else "Note: No company information provided. Focus solely on the candidate's qualifications."}
 
@@ -160,16 +271,31 @@ Candidate's CV:
 
     user_prompt = f"""Question: {question}
 
-INSTRUCTIONS FOR ANSWERING:
-1. If company name/role is provided above, USE IT DIRECTLY - do not use brackets or placeholders
-2. If this is about motivation/interest: Explain WHY this specific company/role appeals based on their actual values or mission
-3. If this is about experience: Select the MOST relevant project/achievement from the CV
-4. If this is about skills: Highlight skills from the CV that directly match their needs
-5. Write naturally - weave in company references smoothly, not as obvious insertions
+STRATEGIC ANSWERING APPROACH:
 
-NEVER write "[Company Name]" or "[Role]" - always use the actual names provided or omit company references if not provided.
+Step 1 - ANALYZE RELEVANCE:
+Look at the job description and company context. What are they looking for? What industry? What skills? Remote or onsite?
 
-Generate a compelling, authentic answer."""
+Step 2 - SELECT BEST MATCHES:
+From the candidate's CV, identify which experiences/projects/skills are MOST relevant to this specific role.
+- Don't just list everything - be selective
+- Prioritize experiences that directly relate to their needs
+- If they mention cyber security and the candidate has cyber experience, LEAD with that
+- If it's a remote role and candidate has remote experience, mention it
+- If there's technology overlap, highlight it
+
+Step 3 - CRAFT ANSWER:
+Write a compelling answer that:
+- Uses the actual company name (never placeholders)
+- Highlights the MOST RELEVANT 1-2 experiences (not all of them)
+- Shows clear connection between past experience and target role
+- Explains WHY this specific experience makes them a great fit for THIS role
+- Is specific and authentic
+
+Example thought process:
+"They're looking for a backend engineer at a cyber company. The candidate worked at a cyber startup doing backend work. PERFECT - I'll lead with that experience and explain how it directly prepares them for this role."
+
+Now generate your answer following this strategic approach."""
 
     completion = client.chat.completions.create(
         model="gpt-4o",
@@ -182,6 +308,13 @@ Generate a compelling, authentic answer."""
     )
 
     answer = completion.choices[0].message.content.strip()
+
+    logger.info(
+        "LLM answer generated | question_type=%s | question=%s | answer_preview=%s",
+        question_type,
+        question,
+        answer[:300]
+    )
 
     return GenerateAnswerResponse(
         answer=answer,

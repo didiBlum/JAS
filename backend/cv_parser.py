@@ -55,8 +55,11 @@ Your task is to extract structured information from any CV format, including:
 - CVs in different languages or cultural styles
 
 Guidelines:
-- Extract the candidate's name (check headers, top of page, signature lines)
-- Find contact info: email and phone (look anywhere in the document)
+- Extract the candidate's full name (check headers, top of page, signature lines)
+- Where possible, also extract first and last name separately using the CV wording (do not invent new names)
+- Find contact info: email, phone, LinkedIn URL, and personal website/portfolio URL (look anywhere in the document)
+- Capture current location/country if present (city/state is okay but prioritize country)
+- IMPORTANT: Look for LinkedIn profile URLs (linkedin.com/in/...) - they may be in headers, footers, contact sections, or as hyperlinks
 - Create a brief professional summary (synthesize from objective, about me, profile sections, or opening paragraphs)
 - List work experience: company names, job titles, dates if available, and key achievements/responsibilities
 - Extract all skills: technical skills, soft skills, tools, languages, certifications
@@ -69,6 +72,7 @@ Be flexible and adaptive:
 - Handle various date formats and job title variations
 - Extract achievements from bullet points, paragraphs, or narrative text
 - Look for alternative section names (e.g., "Professional Experience" vs "Work History")
+- LinkedIn URLs may appear as: full URLs, shortened URLs, or just the username portion
 
 Output valid data even for minimal or poorly formatted CVs."""
             },
@@ -86,8 +90,13 @@ Output valid data even for minimal or poorly formatted CVs."""
                     "type": "object",
                     "properties": {
                         "name": {"type": "string"},
+                        "first_name": {"type": ["string", "null"]},
+                        "last_name": {"type": ["string", "null"]},
                         "email": {"type": ["string", "null"]},
                         "phone": {"type": ["string", "null"]},
+                        "linkedin_url": {"type": ["string", "null"]},
+                        "website": {"type": ["string", "null"]},
+                        "country": {"type": ["string", "null"]},
                         "summary": {"type": "string"},
                         "experience": {
                             "type": "array",
@@ -131,7 +140,7 @@ Output valid data even for minimal or poorly formatted CVs."""
                             "items": {"type": "string"}
                         }
                     },
-                    "required": ["name", "email", "phone", "summary", "experience", "skills", "projects", "education"],
+                    "required": ["name", "email", "phone", "linkedin_url", "website", "country", "summary", "experience", "skills", "projects", "education"],
                     "additionalProperties": False
                 }
             }
@@ -158,5 +167,5 @@ async def parse_cv_file(file_content: bytes, filename: str) -> ParsedCV:
     else:
         raise ValueError("Unsupported file format. Please upload PDF or DOCX.")
 
-    # Parse with OpenAI
+# Parse with OpenAI
     return parse_cv_with_openai(text)
