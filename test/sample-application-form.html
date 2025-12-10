@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Job Application Form</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .form-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .company {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .short-input {
+            max-width: 300px;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        .required {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Software Engineer Application</h1>
+        <p class="company">TechCorp Inc. - Remote</p>
+
+        <form>
+            <!-- Short fields (should be skipped by extension) -->
+            <div class="form-group">
+                <label for="name">Full Name <span class="required">*</span></label>
+                <input type="text" id="name" name="name" class="short-input" maxlength="50" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email <span class="required">*</span></label>
+                <input type="email" id="email" name="email" class="short-input" required>
+            </div>
+
+            <!-- Long fields (should be detected by extension) -->
+            <div class="form-group">
+                <label for="motivation">Why do you want to work at TechCorp? <span class="required">*</span></label>
+                <textarea id="motivation" name="motivation" placeholder="Tell us what excites you about this opportunity..." required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="experience">Describe a challenging project you've worked on and how you overcame obstacles.</label>
+                <textarea id="experience" name="experience" placeholder="Share a specific example from your experience..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="technical-skills">What technical skills and tools are you most proficient in?</label>
+                <textarea id="technical-skills" name="technical-skills" placeholder="List your key technical competencies..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="team-conflict">Tell us about a time you had a conflict with a team member and how you resolved it.</label>
+                <textarea id="team-conflict" name="team-conflict" placeholder="Describe the situation, your approach, and the outcome..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="future-goals">Where do you see yourself in 3-5 years?</label>
+                <textarea id="future-goals" name="future-goals" placeholder="Share your career aspirations..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="additional">Is there anything else you'd like us to know?</label>
+                <textarea id="additional" name="additional" placeholder="Any additional information you'd like to share..."></textarea>
+            </div>
+
+            <button type="submit">Submit Application</button>
+        </form>
+    </div>
+
+    <script>
+        // Prevent actual form submission for testing
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('This is a test form. In a real application, this would submit your data.');
+        });
+    </script>
+</body>
+</html>
